@@ -7,3 +7,7 @@ npm-debug.log*
 *.log
 .DS_Store
 README.md
+deploy
+backups
+docker-compose.yml
+docker-compose.prod.yml

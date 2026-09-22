@@ -137,6 +137,25 @@ src/lib/
   format.ts, dates.ts, constants.ts
 ```
 
+## Serverga joylash
+
+To'liq qo'llanma: **`deploy/README.md`** — port to'qnashuvisiz (Postgres yopiq,
+ilova `127.0.0.1:APP_PORT` da, nginx 8080-portda), zaxira skripti va keyinchalik
+domen + HTTPS ulash bo'yicha ko'rsatmalar bilan.
+
+Qisqacha:
+
+```bash
+rsync -avz --delete --exclude node_modules --exclude .next --exclude .env \
+  ./ root@SERVER_IP:/opt/barter/
+ssh root@SERVER_IP
+cd /opt/barter && cp deploy/env-namuna.txt .env && nano .env
+docker compose -f docker-compose.prod.yml up -d --build
+sudo cp deploy/nginx/barter.conf /etc/nginx/sites-available/ && \
+  sudo ln -s /etc/nginx/sites-available/barter.conf /etc/nginx/sites-enabled/ && \
+  sudo nginx -t && sudo systemctl reload nginx
+```
+
 ## Xavfsizlik bo'yicha eslatmalar
 
 - HTTPS ortida ishlatilsa `.env` da `SECURE_COOKIES=true` qiling.
@@ -153,4 +172,3 @@ src/lib/
   tavsiya etiladi.
 - Sana hisob-kitoblari jarayonning `TZ` o'zgaruvchisiga tayanadi (Docker'da
   `Asia/Tashkent`). Boshqa mintaqada ishlatsangiz, `TZ` ni mos ravishda o'rnating.
-# barter

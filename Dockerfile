@@ -9,9 +9,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
 
 # 1) Bog'liqliklar (postinstall `prisma generate` ni chaqiradi — shuning uchun schema oldin)
-COPY package.json ./
+COPY package.json package-lock.json* ./
 COPY prisma ./prisma
-RUN npm install --no-audit --no-fund
+# package-lock.json bo'lsa — aynan o'sha versiyalar o'rnatiladi (takrorlanuvchi build)
+RUN if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; \
+    else npm install --no-audit --no-fund; fi
 
 # 2) Kod va build
 COPY . .
