@@ -11,11 +11,15 @@ POSTGRES_USER=barter
 POSTGRES_PASSWORD=
 
 # --- Port ----------------------------------------------------------------
-# Ilova serverning ICHIDA shu portda ishlaydi (127.0.0.1 ga bog'lanadi).
-# Boshqa loyihalar bilan to'qnashmasligi uchun band bo'lmagan portni tanlang.
-# Tekshirish:  sudo ss -tlnp | grep 3210
-# Bu qiymat deploy/nginx/barter.conf dagi `upstream` bilan BIR XIL bo'lishi shart.
-APP_PORT=3210
+# Band bo'lmagan portni tanlang. Tekshirish:
+#   sudo ss -tlnp | grep -E ':(80|443|8080|8090)'
+APP_PORT=8090
+
+# Ilova qayerdan ochilsin:
+#   0.0.0.0    -> to'g'ridan-to'g'ri internetdan: http://SERVER_IP:APP_PORT
+#                 (serverda nginx bo'lmasa yoki u Docker'da boshqa loyihaniki bo'lsa)
+#   127.0.0.1  -> faqat server ichidan; oldida nginx turadi va shu manzilga proksi qiladi
+BIND_HOST=0.0.0.0
 
 # --- Vaqt mintaqasi ------------------------------------------------------
 TZ=Asia/Tashkent
@@ -31,7 +35,7 @@ SESSION_DAYS=14
 
 # Next.js server action'lari uchun ruxsat etilgan manzillar.
 # Reverse proxy ortida ishlaganda to'ldiring (vergul bilan, port bilan birga):
-#   ALLOWED_ORIGINS=91.200.10.5:8080,barter.domen.uz
+#   ALLOWED_ORIGINS=91.200.10.5:8090,barter.domen.uz
 # Bo'sh qoldirilsa — Next standart tekshiruvidan foydalanadi.
 ALLOWED_ORIGINS=
 
