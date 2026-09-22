@@ -1,0 +1,216 @@
+// TXT BARTER — ma'lumotlar bazasi sxemasi
+// Django modellarining to'liq ekvivalenti.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Foydalanuvchi: admin yoki menejer.
+model User {
+  id                 Int       @id @default(autoincrement())
+  username           String    @unique
+  passwordHash       String
+  fullName           String    @default("")
+  /// "admin" | "manager"
+  role               String    @default("manager")
+  isActive           Boolean   @default(true)
+  /// Birinchi kirishda parolni almashtirish talab qilinadi
+  mustChangePassword Boolean   @default(false)
+  lastLogin          DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  tjms            Tjm[]         @relation("UserTjms")
+  sessions        Session[]
+  transactions    Transaction[] @relation("TxCreatedBy")
+  notes           Note[]        @relation("NoteCreatedBy")
+  contractsMade   Contract[]    @relation("ContractCreatedBy")
+  contractsClosed Contract[]    @relation("ContractClosedBy")
+  auditLogs       AuditLog[]
+
+  @@index([fullName])
+}
+
+/// Kirish sessiyasi (cookie'dagi ID shu yozuvga ishora qiladi).
+model Session {
+  id        String   @id
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  ip        String?
+  userAgent String   @default("")
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// Turar-joy majmuasi (obyekt).
+model Tjm {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  contracts Contract[]
+  managers  User[]     @relation("UserTjms")
+
+  @@index([name])
+}
+
+/// Barterchi — material/xizmat yetkazib beruvchi.
+model Supplier {
+  id        Int      @id @default(autoincrement())
+  fullName  String
+  searchKey String
+  createdAt DateTime @default(now())
+
+  phones    SupplierPhone[]
+  contracts Contract[]
+
+  @@index([searchKey])
+  @@index([fullName])
+}
+
+model SupplierPhone {
+  id         Int      @id @default(autoincrement())
+  supplierId Int
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  phone      String
+
+  @@unique([supplierId, phone])
+  @@index([phone])
+}
+
+/// Barter shartnomasi.
+model Contract {
+  id           Int       @id @default(autoincrement())
+  supplierId   Int
+  supplier     Supplier  @relation(fields: [supplierId], references: [id])
+  tjmId        Int
+  tjm          Tjm       @relation(fields: [tjmId], references: [id])
+  number       String
+  contractDate DateTime?
+
+  totalAmount     Decimal   @default(0) @db.Decimal(18, 2)
+  /// Yopilgan qism = boshlang'ich chek + barcha tushumlar
+  paidAmount      Decimal   @default(0) @db.Decimal(18, 2)
+  remainingAmount Decimal   @default(0) @db.Decimal(18, 2)
+  /// Grafik bo'yicha belgilangan qarzdorlik summasi
+  monthlyAmount   Decimal   @default(0) @db.Decimal(18, 2)
+  debtSetAt       DateTime?
+  /// Hozirgi qarzdorlik (monthlyAmount − debtSetAt dan keyingi tushumlar)
+  debtAmount      Decimal   @default(0) @db.Decimal(18, 2)
+  currency        String    @default("UZS")
+
+  materialType  String @default("")
+  /// material | texnika | xizmat | oziq_ovqat | boshqa
+  materialGroup String @default("boshqa")
+  /// "" | doimiy | orta | toxtagan | yoq
+  supplyStatus  String @default("")
+
+  isClosed    Boolean   @default(false)
+  closedAt    DateTime?
+  closedById  Int?
+  closedBy    User?     @relation("ContractClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+  /// "" | bajarildi | uy_qaytarildi | bekor
+  closeReason String    @default("")
+  closeNote   String    @default("")
+
+  lastPaymentAt DateTime?
+  createdById   Int?
+  createdBy     User?     @relation("ContractCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  transactions Transaction[]
+  notes        Note[]
+
+  @@unique([tjmId, number])
+  @@index([tjmId, isClosed])
+  @@index([remainingAmount])
+  @@index([debtAmount])
+  @@index([lastPaymentAt])
+  @@index([number])
+}
+
+/// Tushum: material, ish hajmi (abyom), pul yoki boshlang'ich chek.
+model Transaction {
+  id         Int      @id @default(autoincrement())
+  contractId Int
+  contract   Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  amount     Decimal  @db.Decimal(18, 2)
+  /// material | abyom | pul | boshlangich
+  kind       String   @default("material")
+  /// Operatsiya sanasi (vaqtsiz kun)
+  operationDate DateTime @db.Date
+  note        String   @default("")
+  createdById Int?
+  createdBy   User?    @relation("TxCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+
+  @@index([contractId])
+  @@index([operationDate])
+  @@index([createdAt])
+  @@index([kind])
+}
+
+/// Shartnoma bo'yicha izoh / qo'ng'iroq yozuvi.
+model Note {
+  id         Int      @id @default(autoincrement())
+  contractId Int
+  contract   Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  /// qongiroq | javobsiz | uchrashuv | izoh | import
+  kind       String   @default("izoh")
+  text       String   @default("")
+  createdById Int?
+  createdBy   User?    @relation("NoteCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+
+  @@index([contractId])
+  @@index([createdAt])
+  @@index([kind])
+}
+
+/// Audit log — tizimdagi barcha amallar.
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+  userId     Int?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  username   String   @default("")
+  action     String
+  detail     String   @default("")
+  objectType String   @default("")
+  objectId   String   @default("")
+  ip         String?
+
+  @@index([createdAt])
+  @@index([action])
+  @@index([username])
+}
+
+/// Telegram bot sozlamalari — yagona yozuv (id = 1).
+model BotSettings {
+  id              Int      @id @default(1)
+  token           String   @default("")
+  chatIds         String   @default("")
+  dailyEnabled    Boolean  @default(true)
+  /// "HH:MM"
+  dailyTime       String   @default("20:00")
+  weeklyEnabled   Boolean  @default(true)
+  /// 0 = Dushanba … 6 = Yakshanba
+  weeklyDay       Int      @default(5)
+  notifyPayments  Boolean  @default(true)
+  notifyNew       Boolean  @default(true)
+  notifyClosed    Boolean  @default(true)
+  commandsEnabled Boolean  @default(true)
+  lastDailySent   DateTime?
+  lastWeeklySent  DateTime?
+  updatedAt       DateTime @updatedAt
+}
